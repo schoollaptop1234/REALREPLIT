@@ -562,6 +562,209 @@ BATTLE_COMMENTARY = [
 # Modern Discord UI Components
 # -----------------------------
 
+class ShopPaginationView(View):
+    def __init__(self, user_id: int, all_items: list, items_per_page: int = 10):
+        super().__init__(timeout=120)
+        self.user_id = user_id
+        self.all_items = all_items
+        self.items_per_page = items_per_page
+        self.current_page = 0
+        self.max_pages = (len(all_items) - 1) // items_per_page
+        
+        # Update button states
+        self.update_buttons()
+    
+    def update_buttons(self):
+        # Enable/disable buttons based on current page
+        self.children[0].disabled = self.current_page <= 0  # Previous button
+        self.children[1].disabled = self.current_page >= self.max_pages  # Next button
+        
+        # Update labels with page info
+        self.children[0].label = f"⬅️ Previous"
+        self.children[1].label = f"Next ➡️"
+    
+    def get_current_page_items(self):
+        start_idx = self.current_page * self.items_per_page
+        end_idx = start_idx + self.items_per_page
+        return self.all_items[start_idx:end_idx]
+    
+    def create_shop_embed(self):
+        current_items = self.get_current_page_items()
+        
+        embed = discord.Embed(
+            title="⚽ **TadzzyBot Football Card Shop** ⚽",
+            description=f"💰 **Buy cards to build your ultimate collection!**\n📄 Page {self.current_page + 1}/{self.max_pages + 1}",
+            color=0x3498db
+        )
+        
+        # Check for active discount
+        discount = get_pack_discount()
+        if discount > 0:
+            embed.add_field(
+                name="🔥 **SALE ACTIVE!**",
+                value=f"**{discount}% OFF** all packs! Limited time!",
+                inline=False
+            )
+        
+        # Add pack shop section for first page
+        if self.current_page == 0:
+            pack_info = []
+            for pack_name, pack_data in PACK_TYPES.items():
+                original_price = pack_data["price"]
+                final_price = apply_pack_discount(original_price)
+                price_text = f"${final_price:,}"
+                if discount > 0:
+                    price_text += f" ~~${original_price:,}~~"
+                
+                pack_info.append(f"🎁 **{pack_name}**: {price_text}")
+            
+            embed.add_field(
+                name="🎁 **PACKS** (Use !buypack)",
+                value="\n".join(pack_info),
+                inline=False
+            )
+        
+        # Add current page cards
+        available_cards = []
+        out_of_stock_cards = []
+        
+        for footballer in current_items:
+            name = footballer["name"]
+            price = footballer["price"]
+            rarity = footballer["rarity"]
+            
+            if is_out_of_stock(name):
+                out_of_stock_cards.append(f"❌ **{name}** - {rarity} - OUT OF STOCK")
+            else:
+                available_cards.append(f"⚽ **{name}** - {rarity} - ${price:,}")
+        
+        if available_cards:
+            embed.add_field(
+                name="✅ **AVAILABLE CARDS**",
+                value="\n".join(available_cards),
+                inline=False
+            )
+        
+        if out_of_stock_cards:
+            embed.add_field(
+                name="❌ **OUT OF STOCK**",
+                value="\n".join(out_of_stock_cards),
+                inline=False
+            )
+        
+        embed.set_footer(text="🛒 Use !buy <player_name> to purchase cards | 🎁 Use !buypack to buy packs")
+        return embed
+    
+    @discord.ui.button(label="⬅️ Previous", style=discord.ButtonStyle.secondary)
+    async def previous_page(self, interaction: discord.Interaction, button: Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ This is not your shop session!", ephemeral=True)
+            return
+        
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.update_buttons()
+            embed = self.create_shop_embed()
+            await interaction.response.edit_message(embed=embed, view=self)
+        else:
+            await interaction.response.send_message("❌ Already on first page!", ephemeral=True)
+    
+    @discord.ui.button(label="Next ➡️", style=discord.ButtonStyle.secondary)
+    async def next_page(self, interaction: discord.Interaction, button: Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ This is not your shop session!", ephemeral=True)
+            return
+        
+        if self.current_page < self.max_pages:
+            self.current_page += 1
+            self.update_buttons()
+            embed = self.create_shop_embed()
+            await interaction.response.edit_message(embed=embed, view=self)
+        else:
+            await interaction.response.send_message("❌ Already on last page!", ephemeral=True)
+    
+    @discord.ui.button(label="🛒 Buy Packs", style=discord.ButtonStyle.success)
+    async def buy_packs(self, interaction: discord.Interaction, button: Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ This is not your shop session!", ephemeral=True)
+            return
+        
+        view = PackShopView()
+        embed = discord.Embed(
+            title="🎁 **Pack Shop** 🎁",
+            description="Choose a pack to purchase!",
+            color=0x00ff00
+        )
+        
+        await interaction.response.edit_message(embed=embed, view=view)
+
+class CollectionPaginationView(View):
+    def __init__(self, user_id: int, user_collection: list, target_user_id: int = None, items_per_page: int = 8):
+        super().__init__(timeout=120)
+        self.user_id = user_id
+        self.user_collection = user_collection
+        self.target_user_id = target_user_id or user_id
+        self.items_per_page = items_per_page
+        self.current_page = 0
+        self.max_pages = max(0, (len(user_collection) - 1) // items_per_page)
+        
+        # Update button states
+        self.update_buttons()
+    
+    def update_buttons(self):
+        # Enable/disable buttons based on current page
+        self.children[0].disabled = self.current_page <= 0  # Previous button
+        self.children[1].disabled = self.current_page >= self.max_pages  # Next button
+        
+        # Update labels with page info
+        self.children[0].label = f"⬅️ Previous"
+        self.children[1].label = f"Next ➡️"
+    
+    def get_current_page_items(self):
+        start_idx = self.current_page * self.items_per_page
+        end_idx = start_idx + self.items_per_page
+        return self.user_collection[start_idx:end_idx]
+    
+    def create_collection_embed(self):
+        current_items = self.get_current_page_items()
+        
+        if self.user_id == self.target_user_id:
+            title = "⚽ **Your Football Card Collection** ⚽"
+            max_storage = get_user_max_storage(self.user_id)
+            description = f"📦 **{len(self.user_collection)}/{max_storage} cards** | Page {self.current_page + 1}/{self.max_pages + 1}"
+        else:
+            target_user = bot.get_user(self.target_user_id)
+            username = target_user.display_name if target_user else "User"
+            title = f"⚽ **{username}'s Collection** ⚽"
+            description = f"📦 **{len(self.user_collection)} cards** | Page {self.current_page + 1}/{self.max_pages + 1}"
+        
+        embed = discord.Embed(
+            title=title,
+            description=description,
+            color=0x3498db
+        )
+        
+        if not current_items:
+            embed.add_field(
+                name="📭 Empty Collection",
+                value="No cards on this page. Use `!buy <player>` to get cards!",
+                inline=False
+            )
+            return embed
+        
+        # Calculate total value for current page
+        page_value = sum(card.get("price", 0) for card in current_items)
+        
+        # Add cards to embed
+        for i, card in enumerate(current_items, start=(self.current_page * self.items_per_page + 1)):
+            upgrade_level = get_card_upgrade_level(card)
+            upgrade_progress = card.get("upgrade_progress", 0)
+            
+            # Build card info
+            card_info = f"🏆 **{card['rarity']}** | 💰 ${card['price']:,}\"\n            
+            card_info += f\"⭐ Level: **{upgrade_level}**\"\n            
+            if upgrade_level != \"Ultimate\" and upgrade_progress > 0:\n                card_info += f\" ({upgrade_progress}% progress)\"\n            \n            embed.add_field(\n                name=f\"{i}. {card['name']}\",\n                value=card_info,\n                inline=True\n            )\n        \n        # Add page summary\n        embed.add_field(\n            name=\"📊 **Page Summary**\",\n            value=f\"💰 Page Value: ${page_value:,}\\n📦 Cards shown: {len(current_items)}\",\n            inline=False\n        )\n        \n        if self.user_id == self.target_user_id:\n            embed.set_footer(text=\"💡 Use !sell <number> to sell cards | !upgrade <number> to upgrade\")\n        \n        return embed\n    \n    @discord.ui.button(label=\"⬅️ Previous\", style=discord.ButtonStyle.secondary)\n    async def previous_page(self, interaction: discord.Interaction, button: Button):\n        if interaction.user.id != self.user_id:\n            await interaction.response.send_message(\"❌ This is not your collection view!\", ephemeral=True)\n            return\n        \n        if self.current_page > 0:\n            self.current_page -= 1\n            self.update_buttons()\n            embed = self.create_collection_embed()\n            await interaction.response.edit_message(embed=embed, view=self)\n        else:\n            await interaction.response.send_message(\"❌ Already on first page!\", ephemeral=True)\n    \n    @discord.ui.button(label=\"Next ➡️\", style=discord.ButtonStyle.secondary)\n    async def next_page(self, interaction: discord.Interaction, button: Button):\n        if interaction.user.id != self.user_id:\n            await interaction.response.send_message(\"❌ This is not your collection view!\", ephemeral=True)\n            return\n        \n        if self.current_page < self.max_pages:\n            self.current_page += 1\n            self.update_buttons()\n            embed = self.create_collection_embed()\n            await interaction.response.edit_message(embed=embed, view=self)\n        else:\n            await interaction.response.send_message(\"❌ Already on last page!\", ephemeral=True)\n    \n    @discord.ui.button(label=\"📊 Full Stats\", style=discord.ButtonStyle.primary)\n    async def show_full_stats(self, interaction: discord.Interaction, button: Button):\n        if interaction.user.id != self.user_id:\n            await interaction.response.send_message(\"❌ This is not your collection view!\", ephemeral=True)\n            return\n        \n        # Calculate collection statistics\n        total_value = sum(card.get(\"price\", 0) for card in self.user_collection)\n        total_income = sum(card.get(\"income_rate\", 0) for card in self.user_collection)\n        \n        # Count by rarity\n        rarity_counts = {}\n        for card in self.user_collection:\n            rarity = card.get(\"rarity\", \"Common\")\n            rarity_counts[rarity] = rarity_counts.get(rarity, 0) + 1\n        \n        # Count by upgrade level\n        upgrade_counts = {}\n        for card in self.user_collection:\n            level = get_card_upgrade_level(card)\n            upgrade_counts[level] = upgrade_counts.get(level, 0) + 1\n        \n        if self.user_id == self.target_user_id:\n            title = \"📊 **Your Collection Statistics** 📊\"\n        else:\n            target_user = bot.get_user(self.target_user_id)\n            username = target_user.display_name if target_user else \"User\"\n            title = f\"📊 **{username}'s Collection Statistics** 📊\"\n        \n        embed = discord.Embed(title=title, color=0x00ff00)\n        \n        embed.add_field(\n            name=\"💰 **Financial Summary**\",\n            value=f\"Total Value: ${total_value:,}\\nPassive Income: ${total_income:,}/hour\",\n            inline=True\n        )\n        \n        embed.add_field(\n            name=\"📦 **Collection Size**\",\n            value=f\"Total Cards: {len(self.user_collection)}\",\n            inline=True\n        )\n        \n        if rarity_counts:\n            rarity_text = \"\\n\".join([f\"{rarity}: {count}\" for rarity, count in sorted(rarity_counts.items())])\n            embed.add_field(\n                name=\"🏆 **By Rarity**\",\n                value=rarity_text,\n                inline=True\n            )\n        \n        if upgrade_counts:\n            upgrade_text = \"\\n\".join([f\"{level}: {count}\" for level, count in sorted(upgrade_counts.items())])\n            embed.add_field(\n                name=\"⭐ **By Upgrade Level**\",\n                value=upgrade_text,\n                inline=True\n            )\n        \n        await interaction.response.edit_message(embed=embed, view=self)
+
 class PackOpenView(View):
     def __init__(self, user_id: int, pack_type: str):
         super().__init__(timeout=60)
