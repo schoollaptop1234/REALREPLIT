@@ -1170,7 +1170,7 @@ class CardSacrificeSelect(Select):
             else:
                 embed = discord.Embed(
                     title="⭐ Maximum Level Reached! ⭐",
-                    description=f"🏆 {target_card['name']} is already at maximum level!\n⚔️ {sacrifice_card['name']} was still sacrificed for progress.",
+                    description=f"🏆 {target_card['name']} is already at Ultimate level!\n⚔️ {sacrifice_card['name']} was still sacrificed for progress.",
                     color=0xffd700
                 )
         else:
@@ -1270,7 +1270,7 @@ class UpgradeView(View):
             else:
                 embed = discord.Embed(
                     title="⭐ Maximum Level Reached! ⭐",
-                    description=f"🏆 {card['name']} is already at Ultimate level!",
+                    description=f"🏆 {card['name']} is already at maximum level!",
                     color=0xffd700
                 )
         else:
