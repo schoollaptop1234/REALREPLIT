@@ -262,10 +262,20 @@ PACK_TYPES = {
             "Mythic": 0.18,
             "Secret": 0.07
         }
+    },
+    "Godly Pack": {
+        "price": 20000000,  # 20 million TadBucks - extremely expensive
+        "rarities": {
+            "Common": 0.05,  # Very rare commons
+            "Epic": 0.15,
+            "Legendary": 0.25,
+            "Mythic": 0.30,
+            "Secret": 0.25  # High chance for Secrets
+        }
     }
 }
 
-UPGRADE_LEVELS = ["Gold", "Diamond", "TOTW", "UCL", "TOTY", "Ultimate", "Godly"]
+UPGRADE_LEVELS = ["Gold", "Diamond", "TOTW", "UCL", "TOTY", "Ultimate"]
 
 def get_card_upgrade_level(card: dict) -> str:
     return card.get("upgrade_level", "Gold")
