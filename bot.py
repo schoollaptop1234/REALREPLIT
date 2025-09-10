@@ -853,8 +853,8 @@ class PackOpenView(View):
                         
                         card = upgrade_card_stats(card)
                 elif self.pack_type == "Godly Pack":
-                    # Godly Pack has chance for Godly upgrade
-                    if random.random() < 0.05:  # 5% chance for Godly upgrade - extremely rare!
+                    # Godly Pack has chance for Godly upgrade - EXTREMELY RARE
+                    if random.random() < 0.02:  # Only 2% chance for Godly upgrade - ultra rare!
                         card["upgrade_level"] = "Godly"
                         card = upgrade_card_stats(card)
                 
