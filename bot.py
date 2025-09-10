@@ -265,7 +265,7 @@ PACK_TYPES = {
     }
 }
 
-UPGRADE_LEVELS = ["Gold", "Diamond", "TOTW", "UCL", "TOTY", "Ultimate"]
+UPGRADE_LEVELS = ["Gold", "Diamond", "TOTW", "UCL", "TOTY", "Ultimate", "Godly"]
 
 def get_card_upgrade_level(card: dict) -> str:
     return card.get("upgrade_level", "Gold")
