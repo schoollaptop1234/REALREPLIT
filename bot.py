@@ -272,12 +272,13 @@ def get_card_upgrade_level(card: dict) -> str:
 
 def get_upgrade_multiplier(upgrade_level: str) -> float:
     multipliers = {
-        "Gold": 1.0,
-        "Diamond": 2.0,
-        "TOTW": 3.0,
-        "UCL": 5.0,
-        "TOTY": 8.0,
-        "Ultimate": 10.0
+        "Gold": 1.5,
+        "Diamond": 1.75,
+        "TOTW": 2.0,
+        "UCL": 2.5,
+        "TOTY": 2.75,
+        "Ultimate": 3.0,
+        "Godly": 5.0
     }
     return multipliers.get(upgrade_level, 1.0)
 
