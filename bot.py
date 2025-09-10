@@ -287,8 +287,8 @@ def get_upgrade_multiplier(upgrade_level: str) -> float:
         "TOTW": 2.0,
         "UCL": 2.5,
         "TOTY": 2.75,
-        "Ultimate": 3.0,
-        "Godly": 5.0
+        "Ultimate": 3.0,  # Ultimate maxed at 3x
+        "Godly": 5.0      # New Godly upgrade - extremely rare 5x multiplier
     }
     return multipliers.get(upgrade_level, 1.0)
 
