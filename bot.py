@@ -6323,6 +6323,175 @@ async def purge_messages(ctx: commands.Context, amount: int = 10):
     
     await ctx.send(embed=embed, view=view)
 
+# ========================================
+# PAGINATION COMMANDS - UPDATED SHOP & COLLECTION  
+# ========================================
+
+@bot.command(name='newshop')
+async def shop_with_pagination(ctx):
+    \"\"\"Browse the player shop with pagination\"\"\"
+    ensure_user_exists(ctx.author.id)
+    
+    # Create pagination view with all footballers
+    view = ShopPaginationView(ctx.author.id, footballers, items_per_page=15)
+    embed = view.create_shop_embed()
+    
+    await ctx.send(embed=embed, view=view)
+
+@bot.command(name='newcollection')  
+async def collection_with_pagination(ctx, member: discord.Member = None):
+    \"\"\"View collection with pagination - FIXED VERSION\"\"\"
+    target = member or ctx.author
+    ensure_user_exists(target.id)
+    
+    uid = str(target.id)
+    user_coll = data[\"user_collections\"].get(uid, [])
+    
+    if not user_coll:
+        embed = discord.Embed(
+            title=\"📭 Empty Collection\",
+            description=f\"{target.display_name}'s collection is empty! Use `!buy <player>` to get cards.\",
+            color=0xff6b6b
+        )
+        await ctx.send(embed=embed)
+        return
+    
+    # Create pagination view
+    view = WorkingCollectionView(ctx.author.id, user_coll, target.id)
+    embed = view.create_collection_embed()
+    
+    await ctx.send(embed=embed, view=view)
+
+# Working version of CollectionPaginationView without syntax errors
+class WorkingCollectionView(View):
+    def __init__(self, user_id: int, user_collection: list, target_user_id: int = None, items_per_page: int = 8):
+        super().__init__(timeout=120)
+        self.user_id = user_id
+        self.user_collection = user_collection
+        self.target_user_id = target_user_id or user_id
+        self.items_per_page = items_per_page
+        self.current_page = 0
+        self.max_pages = max(0, (len(user_collection) - 1) // items_per_page) if user_collection else 0
+    
+    def get_current_page_items(self):
+        start_idx = self.current_page * self.items_per_page
+        end_idx = start_idx + self.items_per_page
+        return self.user_collection[start_idx:end_idx]
+    
+    def create_collection_embed(self):
+        current_items = self.get_current_page_items()
+        
+        if self.user_id == self.target_user_id:
+            title = \"⚽ Your Football Card Collection ⚽\"
+            max_storage = get_user_max_storage(self.user_id)
+            description = f\"📦 {len(self.user_collection)}/{max_storage} cards | Page {self.current_page + 1}/{self.max_pages + 1}\"
+        else:
+            target_user = bot.get_user(self.target_user_id)
+            username = target_user.display_name if target_user else \"User\"
+            title = f\"⚽ {username}'s Collection ⚽\"
+            description = f\"📦 {len(self.user_collection)} cards | Page {self.current_page + 1}/{self.max_pages + 1}\"
+        
+        embed = discord.Embed(title=title, description=description, color=0x3498db)
+        
+        if not current_items:
+            embed.add_field(name=\"📭 Empty Page\", value=\"No cards on this page.\", inline=False)
+            return embed
+        
+        # Add cards to embed
+        for i, card in enumerate(current_items, start=(self.current_page * self.items_per_page + 1)):
+            upgrade_level = get_card_upgrade_level(card)
+            upgrade_progress = card.get(\"upgrade_progress\", 0)
+            
+            card_info = f\"🏆 {card['rarity']} | 💰 ${card['price']:,}\"
+            card_info += f\"\\n⭐ Level: {upgrade_level}\"
+            
+            if upgrade_level != \"Ultimate\" and upgrade_progress > 0:
+                card_info += f\" ({upgrade_progress}% progress)\"
+            
+            embed.add_field(name=f\"{i}. {card['name']}\", value=card_info, inline=True)
+        
+        # Add page summary
+        page_value = sum(card.get(\"price\", 0) for card in current_items)
+        embed.add_field(
+            name=\"📊 Page Summary\",
+            value=f\"💰 Page Value: ${page_value:,}\\n📦 Cards shown: {len(current_items)}\",
+            inline=False
+        )
+        
+        if self.user_id == self.target_user_id:
+            embed.set_footer(text=\"💡 Use !sell <number> to sell cards | !upgrade <number> to upgrade\")
+        
+        return embed
+    
+    @discord.ui.button(label=\"⬅️ Previous\", style=discord.ButtonStyle.secondary)
+    async def previous_page(self, interaction: discord.Interaction, button: Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message(\"❌ Not your collection view!\", ephemeral=True)
+            return
+        
+        if self.current_page > 0:
+            self.current_page -= 1
+            embed = self.create_collection_embed()
+            await interaction.response.edit_message(embed=embed, view=self)
+        else:
+            await interaction.response.send_message(\"❌ Already on first page!\", ephemeral=True)
+    
+    @discord.ui.button(label=\"Next ➡️\", style=discord.ButtonStyle.secondary) 
+    async def next_page(self, interaction: discord.Interaction, button: Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message(\"❌ Not your collection view!\", ephemeral=True)
+            return
+        
+        if self.current_page < self.max_pages:
+            self.current_page += 1
+            embed = self.create_collection_embed()
+            await interaction.response.edit_message(embed=embed, view=self)
+        else:
+            await interaction.response.send_message(\"❌ Already on last page!\", ephemeral=True)
+    
+    @discord.ui.button(label=\"📊 Full Stats\", style=discord.ButtonStyle.primary)
+    async def show_full_stats(self, interaction: discord.Interaction, button: Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message(\"❌ Not your collection view!\", ephemeral=True)
+            return
+        
+        # Calculate collection statistics
+        total_value = sum(card.get(\"price\", 0) for card in self.user_collection)
+        total_income = sum(card.get(\"income_rate\", 0) for card in self.user_collection)
+        
+        # Count by rarity
+        rarity_counts = {}
+        for card in self.user_collection:
+            rarity = card.get(\"rarity\", \"Common\")
+            rarity_counts[rarity] = rarity_counts.get(rarity, 0) + 1
+        
+        if self.user_id == self.target_user_id:
+            title = \"📊 Your Collection Statistics 📊\"
+        else:
+            target_user = bot.get_user(self.target_user_id)
+            username = target_user.display_name if target_user else \"User\"
+            title = f\"📊 {username}'s Collection Statistics 📊\"
+        
+        embed = discord.Embed(title=title, color=0x00ff00)
+        
+        embed.add_field(
+            name=\"💰 Financial Summary\",
+            value=f\"Total Value: ${total_value:,}\\nPassive Income: ${total_income:,}/hour\",
+            inline=True
+        )
+        
+        embed.add_field(
+            name=\"📦 Collection Size\",
+            value=f\"Total Cards: {len(self.user_collection)}\",
+            inline=True
+        )
+        
+        if rarity_counts:
+            rarity_text = \"\\n\".join([f\"{rarity}: {count}\" for rarity, count in sorted(rarity_counts.items())])
+            embed.add_field(name=\"🏆 By Rarity\", value=rarity_text, inline=True)
+        
+        await interaction.response.edit_message(embed=embed, view=self)
+
 # Run bot with proper error handling
 if __name__ == "__main__":
     try:
