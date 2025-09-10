@@ -6421,7 +6421,7 @@ class WorkingCollectionView(View):
             card_info = f\"🏆 {card['rarity']} | 💰 ${card['price']:,}\"
             card_info += f\"\\n⭐ Level: {upgrade_level}\"
             
-            if upgrade_level != \"Ultimate\" and upgrade_progress > 0:
+            if upgrade_level not in [\"Ultimate\", \"Godly\"] and upgrade_progress > 0:
                 card_info += f\" ({upgrade_progress}% progress)\"
             
             embed.add_field(name=f\"{i}. {card['name']}\", value=card_info, inline=True)
