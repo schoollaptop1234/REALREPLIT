@@ -839,9 +839,9 @@ class PackOpenView(View):
             if available_cards:
                 card = random.choice(available_cards).copy()
                 
-                # Check for pre-upgraded cards in special packs - REDUCED CHANCES
+                # Check for pre-upgraded cards in special packs - HEAVILY REDUCED CHANCES
                 if self.pack_type in ["TOTW Pack", "UCL Pack", "TOTY Pack", "Ultimate Pack"]:
-                    if random.random() < 0.15:  # Reduced to 15% chance for pre-upgraded
+                    if random.random() < 0.05:  # Reduced to 5% chance for pre-upgraded cards
                         if self.pack_type == "TOTW Pack":
                             card["upgrade_level"] = "TOTW"
                         elif self.pack_type == "UCL Pack":
@@ -853,8 +853,8 @@ class PackOpenView(View):
                         
                         card = upgrade_card_stats(card)
                 elif self.pack_type == "Godly Pack":
-                    # Godly Pack has chance for Godly upgrade - EXTREMELY RARE
-                    if random.random() < 0.02:  # Only 2% chance for Godly upgrade - ultra rare!
+                    # Godly Pack has chance for Godly upgrade
+                    if random.random() < 0.05:  # 5% chance for Godly upgrade - extremely rare!
                         card["upgrade_level"] = "Godly"
                         card = upgrade_card_stats(card)
                 
